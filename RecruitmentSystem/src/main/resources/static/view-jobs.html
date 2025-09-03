@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>View Jobs</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body onload="checkAuth(); viewJobs();">
+<h2>View Jobs</h2>
+<nav>
+    <a href="/index.html">Home</a>
+    <a href="/add-job.html">Add Job</a>
+    <a href="/register-applicant.html">Register Applicant</a>
+    <a href="/match-applicants.html">Match Applicants</a>
+    <a href="/settings.html">Settings</a>
+    <a href="/ratings.html">Ratings</a>
+    <a href="/faq.html">FAQ</a>
+</nav>
+<h3>Filter Jobs</h3>
+<input type="text" id="filterSalary" placeholder="Salary Range (e.g., 50000-70000)">
+<input type="text" id="filterDifficulty" placeholder="Difficulty (Easy/Medium/Hard)">
+<input type="text" id="filterSkill" placeholder="Skill (e.g., Java)">
+<input type="number" id="filterRating" placeholder="Min Employer Rating (1-5)" step="0.1">
+<button onclick="viewJobs()">Apply Filters</button>
+<ul id="jobList"></ul>
+<script src="/js/scripts.js"></script>
+</body>
+</html>

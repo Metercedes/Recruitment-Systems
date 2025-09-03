@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Settings</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/password-strength.css">
+</head>
+<body onload="checkAuth()">
+<h2>Settings</h2>
+<nav>
+    <a href="/index.html">Home</a>
+    <a href="/add-job.html">Add Job</a>
+    <a href="/register-applicant.html">Register Applicant</a>
+    <a href="/view-jobs.html">View Jobs</a>
+    <a href="/match-applicants.html">Match Applicants</a>
+    <a href="/ratings.html">Ratings</a>
+    <a href="/faq.html">FAQ</a>
+</nav>
+<h3>Update Skills (Job Seekers)</h3>
+<form id="skillsForm" onsubmit="event.preventDefault(); updateSkills();">
+    <input type="text" id="userSkills" placeholder="Skills (comma-separated)">
+    <button type="submit">Update Skills</button>
+</form>
+<h3>Change Password</h3>
+<div id="errorMessage" style="color: red; display: none;"></div>
+<form id="changePasswordForm" onsubmit="event.preventDefault(); changePassword();">
+    <input type="password" id="oldPassword" placeholder="Current Password" required>
+    <input type="password" id="newPassword" placeholder="New Password" required oninput="updatePasswordStrength()">
+    <div id="passwordStrength"></div>
+    <div id="passwordStrengthText"></div>
+    <button type="submit">Change Password</button>
+</form>
+<h3>Account</h3>
+<button id="logoutButton" onclick="logout()">Log Out</button>
+<script src="/js/password-strength.js"></script>
+<script src="/js/scripts.js"></script>
+</body>
+</html>

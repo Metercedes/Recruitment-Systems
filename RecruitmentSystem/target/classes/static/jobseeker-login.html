@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Job Seeker Login</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+<h2>Job Seeker Login</h2>
+<form id="loginForm" onsubmit="event.preventDefault(); login('jobseeker');">
+    <input type="text" id="username" placeholder="Username" required>
+    <input type="password" id="password" placeholder="Password" required>
+    <div class="g-recaptcha" data-sitekey="your-site-key-here"></div>
+    <button type="submit">Login</button>
+</form>
+<p><a href="/register.html?type=jobseeker">Register as Job Seeker</a></p>
+<p><a href="/employer-login.html">Employer Login</a></p>
+<script src="/js/scripts.js"></script>
+</body>
+</html>

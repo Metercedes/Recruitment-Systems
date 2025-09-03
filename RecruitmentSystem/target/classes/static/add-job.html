@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Job</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body onload="checkAuth()">
+<h2>Add Job</h2>
+<nav>
+    <a href="/index.html">Home</a>
+    <a href="/register-applicant.html">Register Applicant</a>
+    <a href="/view-jobs.html">View Jobs</a>
+    <a href="/match-applicants.html">Match Applicants</a>
+    <a href="/settings.html">Settings</a>
+    <a href="/ratings.html">Ratings</a>
+    <a href="/faq.html">FAQ</a>
+</nav>
+<div id="errorMessage" style="color: red; display: none;"></div>
+<form id="addJobForm" onsubmit="event.preventDefault(); addJob();">
+    <input type="text" id="jobTitle" placeholder="Job Title" required>
+    <textarea id="jobDesc" placeholder="Job Description" required></textarea>
+    <input type="text" id="jobReqs" placeholder="Requirements (comma-separated)" required>
+    <input type="text" id="salaryRange" placeholder="Salary Range (e.g., 50000-70000)" required>
+    <input type="text" id="difficulty" placeholder="Difficulty (Easy/Medium/Hard)" required>
+    <input type="text" id="requiredSkills" placeholder="Required Skills (comma-separated)" required>
+    <input type="text" id="benefits" placeholder="Benefits (comma-separated)" required>
+    <button type="submit">Add Job</button>
+</form>
+<script src="/js/scripts.js"></script>
+</body>
+</html>

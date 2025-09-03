@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ratings</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body onload="checkAuth()">
+<h2>Employer/Company Ratings</h2>
+<nav>
+    <a href="/index.html">Home</a>
+    <a href="/add-job.html">Add Job</a>
+    <a href="/register-applicant.html">Register Applicant</a>
+    <a href="/view-jobs.html">View Jobs</a>
+    <a href="/match-applicants.html">Match Applicants</a>
+    <a href="/settings.html">Settings</a>
+</nav>
+<h3>Submit Rating</h3>
+<form id="ratingForm" onsubmit="event.preventDefault(); submitRating();">
+    <input type="text" id="targetUsername" placeholder="Employer/Company Username" required>
+    <select id="ratingScore" required>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+    </select>
+    <textarea id="ratingReview" placeholder="Review" required></textarea>
+    <button type="submit">Submit Rating</button>
+</form>
+<h3>View Ratings</h3>
+<input type="text" id="viewTargetUsername" placeholder="Enter Employer/Company Username">
+<button onclick="viewRatings()">View Ratings</button>
+<div id="ratingsList"></div>
+<script src="/js/scripts.js"></script>
+</body>
+</html>

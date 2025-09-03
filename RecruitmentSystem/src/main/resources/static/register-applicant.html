@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register Applicant</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body onload="checkAuth()">
+<h2>Register Applicant</h2>
+<form onsubmit="event.preventDefault(); registerApplicant();">
+    <input type="text" id="applicantName" placeholder="Name" required>
+    <input type="text" id="applicantSkills" placeholder="Skills (comma separated)" required>
+    <button type="submit">Register</button>
+</form>
+<p><a href="/index.html">Back to Home</a></p>
+<script src="/js/scripts.js"></script>
+</body>
+</html>
