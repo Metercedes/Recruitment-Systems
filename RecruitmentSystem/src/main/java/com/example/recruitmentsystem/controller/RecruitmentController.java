@@ -128,9 +128,10 @@ public class RecruitmentController {
 
     @GetMapping("/matches")
     public List<String> getMatches(@RequestHeader("X-Username") String username) {
-        if (!service.isSessionValid(username)) {
-            System.out.println("[Controller] Get matches failed: Session expired for " + username);
-            return List.of();
+        User user = service.getUserByUsername(username);
+        if (user == null || (!user.isAdmin() && !user.getUserType().equals("employer"))) {
+            System.out.println("[Controller] Get matches failed: Unauthorized for " + username);
+            return List.of("Access denied: Only admins and employers can view matches");
         }
         service.extendSession(username);
         System.out.println("[Controller] Fetching matches for " + username);
@@ -139,14 +140,10 @@ public class RecruitmentController {
 
     @GetMapping("/debug/users")
     public Map<String, User> getUsers(@RequestHeader("X-Username") String username) {
-        if (!service.isSessionValid(username)) {
-            System.out.println("[Controller] Debug users failed: Session expired for " + username);
-            return Map.of();
-        }
         User user = service.getUserByUsername(username);
         if (user == null || !user.isAdmin()) {
             System.out.println("[Controller] Debug users failed: Not admin for " + username);
-            return Map.of();
+            return Map.of("error", "Admin access required");
         }
         System.out.println("[Controller] Fetching users for admin " + username);
         return service.getAllUsers();
@@ -154,9 +151,10 @@ public class RecruitmentController {
 
     @GetMapping("/debug/lockout-status")
     public Map<String, Object> getLockoutStatus(@RequestHeader("X-Username") String username) {
-        if (!service.isSessionValid(username)) {
-            System.out.println("[Controller] Debug lockout failed: " + username);
-            return Map.of("error", "Session expired");
+        User user = service.getUserByUsername(username);
+        if (user == null || !user.isAdmin()) {
+            System.out.println("[Controller] Debug lockout failed: Not admin for " + username);
+            return Map.of("error", "Admin access required");
         }
         System.out.println("[Controller] Fetching lockout status for " + username);
         return service.getLockoutStatus(username);
@@ -164,10 +162,6 @@ public class RecruitmentController {
 
     @GetMapping("/session-time")
     public ResponseEntity<Map<String, Object>> getSessionTime(@RequestHeader("X-Username") String username) {
-        if (!service.isSessionValid(username)) {
-            System.out.println("[Controller] Get session time failed: Session expired for " + username);
-            return ResponseEntity.status(401).body(Map.of("remainingTime", 0));
-        }
         long remainingTime = service.getRemainingSessionTime(username);
         System.out.println("[Controller] Session time for " + username + ": " + remainingTime + " seconds");
         return ResponseEntity.ok(Map.of("remainingTime", remainingTime));
@@ -182,9 +176,10 @@ public class RecruitmentController {
 
     @PostMapping("/ratings")
     public ResponseEntity<Map<String, Object>> addRating(@RequestBody Map<String, Object> request, @RequestHeader("X-Username") String username) {
-        if (!service.isSessionValid(username)) {
-            System.out.println("[Controller] Add rating failed: Session expired for " + username);
-            return ResponseEntity.status(401).body(Map.of("success", false, "message", "Session expired"));
+        User user = service.getUserByUsername(username);
+        if (user == null || !user.getUserType().equals("jobseeker")) {
+            System.out.println("[Controller] Add rating failed: Only job seekers can rate employers for " + username);
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Only job seekers can rate employers"));
         }
         String target = (String) request.get("target");
         int score = ((Number) request.get("score")).intValue();
@@ -205,10 +200,6 @@ public class RecruitmentController {
 
     @PostMapping("/comments")
     public ResponseEntity<Map<String, Object>> addComment(@RequestBody Map<String, String> request, @RequestHeader("X-Username") String username) {
-        if (!service.isSessionValid(username)) {
-            System.out.println("[Controller] Add comment failed: Session expired for " + username);
-            return ResponseEntity.status(401).body(Map.of("success", false, "message", "Session expired"));
-        }
         String jobId = request.get("jobId");
         String content = request.get("content");
         service.extendSession(username);
@@ -217,10 +208,6 @@ public class RecruitmentController {
 
     @GetMapping("/comments")
     public List<RecruitmentService.Comment> getComments(@RequestParam String jobId, @RequestHeader(value = "X-Username", required = false) String username) {
-        if (username != null && !service.isSessionValid(username)) {
-            System.out.println("[Controller] Get comments failed: Session expired for " + username);
-            return List.of();
-        }
         if (username != null) {
             service.extendSession(username);
         }
@@ -229,8 +216,9 @@ public class RecruitmentController {
 
     @GetMapping("/notifications")
     public List<RecruitmentService.Notification> getNotifications(@RequestHeader("X-Username") String username) {
-        if (!service.isSessionValid(username)) {
-            System.out.println("[Controller] Get notifications failed: Session expired for " + username);
+        User user = service.getUserByUsername(username);
+        if (user == null || !user.getUserType().equals("jobseeker")) {
+            System.out.println("[Controller] Get notifications failed: Only job seekers get notifications for " + username);
             return List.of();
         }
         service.extendSession(username);
@@ -239,13 +227,80 @@ public class RecruitmentController {
 
     @PostMapping("/user/skills")
     public ResponseEntity<Map<String, Object>> updateSkills(@RequestBody Map<String, List<String>> request, @RequestHeader("X-Username") String username) {
-        if (!service.isSessionValid(username)) {
-            System.out.println("[Controller] Update skills failed: Session expired for " + username);
-            return ResponseEntity.status(401).body(Map.of("success", false, "message", "Session expired"));
+        User user = service.getUserByUsername(username);
+        if (user == null || !user.getUserType().equals("jobseeker")) {
+            System.out.println("[Controller] Update skills failed: Only job seekers can update skills for " + username);
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Only job seekers can update skills"));
         }
         List<String> skills = request.get("skills");
         service.updateUserSkills(username, skills);
         service.extendSession(username);
         return ResponseEntity.ok(Map.of("success", true, "message", "Skills updated"));
+    }
+    
+    @PostMapping("/user/personal-data")
+    public ResponseEntity<Map<String, Object>> updatePersonalData(@RequestBody Map<String, String> request, @RequestHeader("X-Username") String username) {
+        String personalId = request.get("personalId");
+        String phoneNumber = request.get("phoneNumber");
+        String address = request.get("address");
+        
+        service.updateUserPersonalData(username, personalId, phoneNumber, address);
+        service.extendSession(username);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Personal data updated"));
+    }
+    
+    @GetMapping("/user/profile")
+    public ResponseEntity<Map<String, Object>> getUserProfile(@RequestHeader("X-Username") String username) {
+        User user = service.getUserByUsername(username);
+        if (user == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "User not found"));
+        }
+        
+        // Load decrypted data
+        service.loadDecryptedDataForUser(user);
+        
+        Map<String, Object> profile = new HashMap<>();
+        profile.put("username", user.getUsername());
+        profile.put("userType", user.getUserType());
+        profile.put("isAdmin", user.isAdmin());
+        
+        // Only include sensitive data for the user themselves
+        if (user.getUserType().equals("jobseeker")) {
+            profile.put("skills", user.getSkills());
+        }
+        profile.put("personalId", user.getPersonalId());
+        profile.put("phoneNumber", user.getPhoneNumber());
+        profile.put("address", user.getAddress());
+        
+        service.extendSession(username);
+        return ResponseEntity.ok(profile);
+    }
+    
+    @DeleteMapping("/admin/users/{targetUsername}")
+    public ResponseEntity<Map<String, Object>> deleteUser(@PathVariable String targetUsername, @RequestHeader("X-Username") String username) {
+        User admin = service.getUserByUsername(username);
+        if (admin == null || !admin.isAdmin()) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Admin access required"));
+        }
+        
+        if (service.deleteUser(targetUsername)) {
+            return ResponseEntity.ok(Map.of("success", true, "message", "User deleted successfully"));
+        } else {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found"));
+        }
+    }
+    
+    @PostMapping("/admin/users/{targetUsername}/ban")
+    public ResponseEntity<Map<String, Object>> banUser(@PathVariable String targetUsername, @RequestHeader("X-Username") String username) {
+        User admin = service.getUserByUsername(username);
+        if (admin == null || !admin.isAdmin()) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Admin access required"));
+        }
+        
+        if (service.banUser(targetUsername)) {
+            return ResponseEntity.ok(Map.of("success", true, "message", "User banned successfully"));
+        } else {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found"));
+        }
     }
 }

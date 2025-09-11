@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Profile</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body onload="checkAuth(); loadProfile();">
+<h2>User Profile</h2>
+<nav>
+    <a href="/index.html">Home</a>
+    <a href="/settings.html">Settings</a>
+</nav>
+
+<div id="profileContent">
+    <h3>Personal Information</h3>
+    <form id="personalDataForm" onsubmit="event.preventDefault(); updatePersonalData();">
+        <input type="text" id="personalId" placeholder="Personal ID" required>
+        <input type="tel" id="phoneNumber" placeholder="Phone Number" required>
+        <textarea id="address" placeholder="Address" required></textarea>
+        <button type="submit">Update Personal Information</button>
+    </form>
+    
+    <div id="skillsSection" style="display: none;">
+        <h3>Skills (Job Seekers Only)</h3>
+        <form id="skillsForm" onsubmit="event.preventDefault(); updateSkills();">
+            <input type="text" id="userSkills" placeholder="Skills (comma-separated)">
+            <button type="submit">Update Skills</button>
+        </form>
+    </div>
+</div>
+
+<script src="/js/auth-check.js"></script>
+<script src="/js/scripts.js"></script>
+<script>
+function loadProfile() {
+    if (!currentUser) {
+        window.location.href = '/jobseeker-login.html';
+        return;
+    }
+    
+    fetch('/api/user/profile', {
+        headers: { 'X-Username': currentUser.username }
+    })
+    .then(response => response.json())
+    .then(profile => {
+        if (profile.error) {
+            alert('Error loading profile: ' + profile.error);
+            return;
+        }
+        
+        // Populate form fields
+        document.getElementById('personalId').value = profile.personalId || '';
+        document.getElementById('phoneNumber').value = profile.phoneNumber || '';
+        document.getElementById('address').value = profile.address || '';
+        
+        // Show skills section for job seekers
+        if (profile.userType === 'jobseeker') {
+            document.getElementById('skillsSection').style.display = 'block';
+            document.getElementById('userSkills').value = (profile.skills || []).join(', ');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading profile:', error);
+        alert('Error loading profile');
+    });
+}
+
+function updatePersonalData() {
+    const personalId = document.getElementById('personalId').value.trim();
+    const phoneNumber = document.getElementById('phoneNumber').value.trim();
+    const address = document.getElementById('address').value.trim();
+    
+    if (!personalId || !phoneNumber || !address) {
+        alert('Please fill all fields');
+        return;
+    }
+    
+    fetch('/api/user/personal-data', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Username': currentUser.username
+        },
+        body: JSON.stringify({ personalId, phoneNumber, address })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+    })
+    .catch(error => {
+        console.error('Error updating personal data:', error);
+        alert('Error updating personal data');
+    });
+}
+</script>
+</body>
+</html>

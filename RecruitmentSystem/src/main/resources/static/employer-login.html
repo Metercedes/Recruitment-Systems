@@ -4,17 +4,39 @@
     <title>Employer Login</title>
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .error-message {
+            color: #dc3545;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-<h2>Employer Login</h2>
-<form id="loginForm" onsubmit="event.preventDefault(); login('employer');">
-    <input type="text" id="username" placeholder="Username" required>
-    <input type="password" id="password" placeholder="Password" required>
-    <div class="g-recaptcha" data-sitekey="your-site-key-here"></div>
-    <button type="submit">Login</button>
-</form>
-<p><a href="/register.html?type=employer">Register as Employer</a></p>
-<p><a href="/jobseeker-login.html">Job Seeker Login</a></p>
+<div class="login-container">
+    <h2>Employer Login</h2>
+    <div id="errorMessage" class="error-message"></div>
+    <form id="loginForm" onsubmit="event.preventDefault(); login('employer');">
+        <input type="text" id="username" placeholder="Username" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <div class="g-recaptcha" data-sitekey="your-site-key-here"></div>
+        <button type="submit">Login</button>
+    </form>
+    <p><a href="/register.html?type=employer">Register as Employer</a></p>
+    <p><a href="/jobseeker-login.html">Job Seeker Login</a></p>
+</div>
 <script src="/js/scripts.js"></script>
 </body>
 </html>

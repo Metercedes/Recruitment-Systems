@@ -14,10 +14,22 @@
     <a href="/settings.html">Settings</a>
     <a href="/ratings.html">Ratings</a>
     <a href="/faq.html">FAQ</a>
+    <a href="/profile.html">Profile</a>
+    <a href="/admin-panel.html" id="adminLink" style="display: none;">Admin Panel</a>
 </nav>
 <h3>Notifications</h3>
 <div id="notificationList"></div>
 <p>Welcome to the Recruitment System!</p>
+<script src="/js/auth-check.js"></script>
 <script src="/js/scripts.js"></script>
+<script>
+// Show admin link for admins
+document.addEventListener('DOMContentLoaded', function() {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (currentUser && currentUser.isAdmin) {
+        document.getElementById('adminLink').style.display = 'inline';
+    }
+});
+</script>
 </body>
 </html>

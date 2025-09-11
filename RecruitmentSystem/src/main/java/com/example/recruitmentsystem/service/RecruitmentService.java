@@ -3,7 +3,10 @@ package com.example.recruitmentsystem.service;
 import com.example.recruitmentsystem.model.Applicant;
 import com.example.recruitmentsystem.model.Job;
 import com.example.recruitmentsystem.model.User;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.mindrot.jbcrypt.BCrypt;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -13,6 +16,15 @@ import java.util.stream.Collectors;
 
 @Service
 public class RecruitmentService {
+    
+    @Autowired
+    private EncryptionService encryptionService;
+    
+    @Autowired
+    private CaptchaService captchaService;
+    
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    
     private Map<String, User> users = new HashMap<>();
     private List<Job> jobs = new ArrayList<>();
     private List<Applicant> applicants = new ArrayList<>();
@@ -113,8 +125,8 @@ public class RecruitmentService {
     public Map<String, Object> loginUser(String username, String password, String recaptchaToken) {
         System.out.println("[Login] Attempt for user: " + username);
 
-        // Mock reCAPTCHA validation
-        if (recaptchaToken == null || !recaptchaToken.equals("mock-recaptcha-token")) {
+        // reCAPTCHA validation
+        if (!captchaService.validateCaptcha(recaptchaToken)) {
             System.out.println("[Login] reCAPTCHA validation failed for " + username);
             return Map.of("success", false, "message", "reCAPTCHA verification failed");
         }
@@ -185,6 +197,20 @@ public class RecruitmentService {
         user.setAdmin(false);
         user.setWasLocked(false);
         user.setUserType(userType);
+        
+        // Initialize empty encrypted personal data
+        Map<String, Object> personalData = new HashMap<>();
+        personalData.put("skills", new ArrayList<String>());
+        personalData.put("personalId", "");
+        personalData.put("phoneNumber", "");
+        personalData.put("address", "");
+        try {
+            String jsonData = objectMapper.writeValueAsString(personalData);
+            user.setEncryptedPersonalData(encryptionService.encrypt(jsonData));
+        } catch (Exception e) {
+            System.err.println("Failed to encrypt personal data for user: " + username);
+        }
+        
         users.put(username, user);
         System.out.println("[Register] User created: " + username);
         return Map.of("success", true, "message", "Registration successful");
@@ -396,7 +422,119 @@ public class RecruitmentService {
     public void updateUserSkills(String username, List<String> skills) {
         User user = users.get(username);
         if (user != null) {
-            user.setSkills(skills.stream().map(String::toLowerCase).collect(Collectors.toList()));
+            try {
+                // Decrypt existing personal data
+                Map<String, Object> personalData = getDecryptedPersonalData(user);
+                
+                // Update skills
+                personalData.put("skills", skills.stream().map(String::toLowerCase).collect(Collectors.toList()));
+                
+                // Re-encrypt and save
+                String jsonData = objectMapper.writeValueAsString(personalData);
+                user.setEncryptedPersonalData(encryptionService.encrypt(jsonData));
+                
+                // Update transient field for immediate use
+                user.setSkills(skills.stream().map(String::toLowerCase).collect(Collectors.toList()));
+            } catch (Exception e) {
+                System.err.println("Failed to update skills for user: " + username);
+            }
+        }
+    }
+    
+    public void updateUserPersonalData(String username, String personalId, String phoneNumber, String address) {
+        User user = users.get(username);
+        if (user != null) {
+            try {
+                // Decrypt existing personal data
+                Map<String, Object> personalData = getDecryptedPersonalData(user);
+                
+                // Update personal information
+                if (personalId != null) personalData.put("personalId", personalId);
+                if (phoneNumber != null) personalData.put("phoneNumber", phoneNumber);
+                if (address != null) personalData.put("address", address);
+                
+                // Re-encrypt and save
+                String jsonData = objectMapper.writeValueAsString(personalData);
+                user.setEncryptedPersonalData(encryptionService.encrypt(jsonData));
+                
+                // Update transient fields for immediate use
+                if (personalId != null) user.setPersonalId(personalId);
+                if (phoneNumber != null) user.setPhoneNumber(phoneNumber);
+                if (address != null) user.setAddress(address);
+            } catch (Exception e) {
+                System.err.println("Failed to update personal data for user: " + username);
+            }
+        }
+    }
+    
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getDecryptedPersonalData(User user) {
+        try {
+            if (user.getEncryptedPersonalData() == null || user.getEncryptedPersonalData().isEmpty()) {
+                // Return default structure
+                Map<String, Object> defaultData = new HashMap<>();
+                defaultData.put("skills", new ArrayList<String>());
+                defaultData.put("personalId", "");
+                defaultData.put("phoneNumber", "");
+                defaultData.put("address", "");
+                return defaultData;
+            }
+            
+            String decryptedJson = encryptionService.decrypt(user.getEncryptedPersonalData());
+            return objectMapper.readValue(decryptedJson, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            System.err.println("Failed to decrypt personal data for user: " + user.getUsername());
+            // Return default structure on error
+            Map<String, Object> defaultData = new HashMap<>();
+            defaultData.put("skills", new ArrayList<String>());
+            defaultData.put("personalId", "");
+            defaultData.put("phoneNumber", "");
+            defaultData.put("address", "");
+            return defaultData;
+        }
+    }
+    
+    public boolean deleteUser(String username) {
+        if (users.containsKey(username)) {
+            users.remove(username);
+            // Also clean up related data
+            sessionExpirations.remove(username);
+            failedAttempts.remove(username);
+            lockoutTimes.remove(username);
+            notifications.remove(username);
+            System.out.println("[DeleteUser] User deleted: " + username);
+            return true;
+        }
+        return false;
+    }
+    
+    public boolean banUser(String username) {
+        User user = users.get(username);
+        if (user != null) {
+            // Set a permanent lockout
+            lockoutTimes.put(username, LocalDateTime.now().plusYears(100));
+            user.setWasLocked(true);
+            // Invalidate session
+            sessionExpirations.remove(username);
+            System.out.println("[BanUser] User banned: " + username);
+            return true;
+        }
+        return false;
+    }
+    
+    public void loadDecryptedDataForUser(User user) {
+        if (user == null) return;
+        
+        try {
+            Map<String, Object> personalData = getDecryptedPersonalData(user);
+            
+            // Set transient fields
+            user.setSkills((List<String>) personalData.get("skills"));
+            user.setPersonalId((String) personalData.get("personalId"));
+            user.setPhoneNumber((String) personalData.get("phoneNumber"));
+            user.setAddress((String) personalData.get("address"));
+        } catch (Exception e) {
+            System.err.println("Failed to load decrypted data for user: " + user.getUsername());
         }
     }
 }

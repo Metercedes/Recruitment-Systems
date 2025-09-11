@@ -1,15 +1,34 @@
 let currentUser = null;
 let sessionTimer = null;
 
+// Enhanced login function with better error handling
 function login(userType) {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
-    const recaptchaToken = grecaptcha ? grecaptcha.getResponse() : 'mock-recaptcha-token'; // Mock for testing
+    
+    // Get reCAPTCHA token
+    let recaptchaToken = 'mock-recaptcha-token'; // Default for testing
+    if (typeof grecaptcha !== 'undefined') {
+        recaptchaToken = grecaptcha.getResponse();
+        if (!recaptchaToken) {
+            alert('Please complete the reCAPTCHA verification');
+            return;
+        }
+    }
+    
     if (!username || !password || !recaptchaToken) {
         console.log('[Login] Empty fields or reCAPTCHA');
         alert('Please fill all fields and complete reCAPTCHA');
         return;
     }
+    
+    // Disable login button to prevent double submission
+    const loginButton = document.querySelector('button[type="submit"]');
+    if (loginButton) {
+        loginButton.disabled = true;
+        loginButton.textContent = 'Logging in...';
+    }
+    
     fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -30,24 +49,56 @@ function login(userType) {
                 window.location.href = redirectUrl;
             } else {
                 alert(data.message);
+                // Reset reCAPTCHA on failure
+                if (typeof grecaptcha !== 'undefined') {
+                    grecaptcha.reset();
+                }
             }
         })
         .catch(error => {
             console.error('[Login] Error:', error);
             alert('Error: ' + error.message);
+            // Reset reCAPTCHA on error
+            if (typeof grecaptcha !== 'undefined') {
+                grecaptcha.reset();
+            }
+        })
+        .finally(() => {
+            // Re-enable login button
+            if (loginButton) {
+                loginButton.disabled = false;
+                loginButton.textContent = 'Login';
+            }
         });
 }
 
+// Enhanced register function with password validation
 function register() {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
     const urlParams = new URLSearchParams(window.location.search);
     const userType = urlParams.get('type') || 'jobseeker';
+    
     if (!username || !password) {
         console.log('[Register] Empty fields');
         alert('Please fill all fields');
         return;
     }
+    
+    // Client-side password validation
+    const passwordError = validatePasswordStrength(password);
+    if (passwordError) {
+        alert(passwordError);
+        return;
+    }
+    
+    // Disable register button
+    const registerButton = document.querySelector('button[type="submit"]');
+    if (registerButton) {
+        registerButton.disabled = true;
+        registerButton.textContent = 'Registering...';
+    }
+    
     fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,7 +114,34 @@ function register() {
         .catch(error => {
             console.error('[Register] Error:', error);
             alert('Error: ' + error.message);
+        })
+        .finally(() => {
+            // Re-enable register button
+            if (registerButton) {
+                registerButton.disabled = false;
+                registerButton.textContent = 'Register';
+            }
         });
+}
+
+// Password strength validation
+function validatePasswordStrength(password) {
+    if (password.length < 8) {
+        return 'Password must be at least 8 characters long';
+    }
+    if (!/[A-Z]/.test(password)) {
+        return 'Password must contain at least one uppercase letter';
+    }
+    if (!/[a-z]/.test(password)) {
+        return 'Password must contain at least one lowercase letter';
+    }
+    if (!/\d/.test(password)) {
+        return 'Password must contain at least one number';
+    }
+    if (!/[@#$%^&+=!]/.test(password)) {
+        return 'Password must contain at least one special character (@#$%^&+=!)';
+    }
+    return null;
 }
 
 function changePassword() {
@@ -366,13 +444,32 @@ function checkAuth() {
     currentUser = JSON.parse(localStorage.getItem('currentUser'));
     if (!currentUser) {
         console.log('[CheckAuth] No current user, redirecting');
-        window.location.href = currentUser && currentUser.userType === 'employer' ? '/employer-login.html' : '/jobseeker-login.html';
+        window.location.href = '/jobseeker-login.html';
         return;
     }
+    
+    // Enhanced role-based access control
+    const currentPath = window.location.pathname;
+    const userRole = currentUser.isAdmin ? 'admin' : currentUser.userType;
+    
     if (window.location.pathname.includes('add-job.html') && !currentUser.isAdmin && currentUser.userType !== 'employer') {
         console.log('[CheckAuth] User not authorized for add-job.html');
         document.body.innerHTML = '<h2>Only admins or employers can access this page</h2><a href="/index.html">Back to Home</a>';
+        return;
     }
+    
+    if (window.location.pathname.includes('ratings.html') && currentUser.userType !== 'jobseeker') {
+        console.log('[CheckAuth] User not authorized for ratings.html');
+        document.body.innerHTML = '<h2>Only job seekers can access ratings</h2><a href="/index.html">Back to Home</a>';
+        return;
+    }
+    
+    if (window.location.pathname.includes('match-applicants.html') && !currentUser.isAdmin && currentUser.userType !== 'employer') {
+        console.log('[CheckAuth] User not authorized for match-applicants.html');
+        document.body.innerHTML = '<h2>Only admins or employers can access this page</h2><a href="/index.html">Back to Home</a>';
+        return;
+    }
+    
     checkSession();
 }
 
