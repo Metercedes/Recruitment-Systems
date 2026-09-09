@@ -1,5 +1,7 @@
 package com.example.recruitmentsystem.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -9,6 +11,8 @@ import java.util.Map;
 
 @Service
 public class CaptchaService {
+
+    private static final Logger log = LoggerFactory.getLogger(CaptchaService.class);
 
     @Value("${app.recaptcha.secret:}")
     private String recaptchaSecret;
@@ -25,7 +29,7 @@ public class CaptchaService {
         }
 
         if (recaptchaSecret == null || recaptchaSecret.isEmpty()) {
-            System.out.println("WARNING: reCAPTCHA secret not configured, accepting all requests");
+            log.warn("reCAPTCHA is enabled but no secret is configured; verification is being skipped");
             return true;
         }
 

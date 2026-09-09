@@ -15,7 +15,6 @@ function checkAuthAndRedirect() {
     // Check if current page requires authentication
     if (protectedPages[currentPath]) {
         if (!currentUser) {
-            console.log('[Auth] No user logged in, redirecting to login');
             window.location.href = '/jobseeker-login.html';
             return false;
         }
@@ -24,7 +23,6 @@ function checkAuthAndRedirect() {
         const userRole = currentUser.isAdmin ? 'admin' : currentUser.userType;
         
         if (!requiredRoles.includes(userRole)) {
-            console.log('[Auth] User role not authorized for this page');
             document.body.innerHTML = `
                 <div style="text-align: center; margin-top: 50px;">
                     <h2>Access Denied</h2>
@@ -52,7 +50,6 @@ function validateSession() {
     })
     .then(response => {
         if (response.status === 401) {
-            console.log('[Session] Server session expired');
             clearSession();
             return false;
         }
@@ -60,7 +57,6 @@ function validateSession() {
     })
     .then(data => {
         if (data && data.remainingTime <= 0) {
-            console.log('[Session] Session expired');
             clearSession();
             return false;
         }

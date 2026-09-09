@@ -55,7 +55,6 @@ function login(userType) {
     }
     
     if (!username || !password || !recaptchaToken) {
-        console.log('[Login] Empty fields or reCAPTCHA');
         alert('Please fill all fields and complete reCAPTCHA');
         return;
     }
@@ -73,17 +72,14 @@ function login(userType) {
         body: JSON.stringify({ username, password, recaptchaToken })
     })
         .then(response => {
-            console.log('[Login] HTTP status:', response.status);
             return response.json();
         })
         .then(data => {
-            console.log('[Login] Response:', data);
             if (data.success) {
                 currentUser = { username: data.username, isAdmin: data.isAdmin, userType: data.userType };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 startSessionTimer(data.sessionTimeout);
                 const redirectUrl = data.wasLocked ? '/change-password.html' : '/index.html';
-                console.log('[Login] Redirecting to:', redirectUrl);
                 window.location.href = redirectUrl;
             } else {
                 alert(data.message);
@@ -118,7 +114,6 @@ function register() {
     const userType = urlParams.get('type') || 'jobseeker';
     
     if (!username || !password) {
-        console.log('[Register] Empty fields');
         alert('Please fill all fields');
         return;
     }
@@ -187,7 +182,6 @@ function changePassword() {
     const newPassword = document.getElementById('newPassword').value;
     const errorMessage = document.getElementById('errorMessage');
     if (!oldPassword || !newPassword) {
-        console.log('[ChangePassword] Empty fields');
         if (errorMessage) {
             errorMessage.style.display = 'block';
             errorMessage.textContent = 'Please fill all fields';
@@ -195,7 +189,6 @@ function changePassword() {
         return;
     }
     if (!currentUser) {
-        console.log('[ChangePassword] No current user');
         alert('Please log in');
         window.location.href = userType === 'employer' ? '/employer-login.html' : '/jobseeker-login.html';
         return;
@@ -227,18 +220,15 @@ function changePassword() {
 
 function logout() {
     if (!currentUser) {
-        console.log('[logout] No current user, redirecting to /login.html');
         window.location.href = currentUser && currentUser.userType === 'employer' ? '/employer-login.html' : '/jobseeker-login.html';
         return;
     }
-    console.log('[logout] Attempting to log out user:', currentUser.username);
     apiFetch('/api/logout', {
         method: 'POST',
         headers: {}
     })
         .then(response => response.json())
         .then(data => {
-            console.log('[logout] Response:', data);
             clearSession();
             window.location.href = currentUser.userType === 'employer' ? '/employer-login.html' : '/jobseeker-login.html';
         })
@@ -250,7 +240,6 @@ function logout() {
 }
 
 function clearSession() {
-    console.log('[clearSession] Clearing session');
     currentUser = null;
     localStorage.removeItem('currentUser');
     if (sessionTimer) {
@@ -263,7 +252,6 @@ function startSessionTimer(seconds) {
     let timeLeft = seconds;
     const timerElement = document.getElementById('sessionTimer');
     if (!timerElement) {
-        console.log('[startSessionTimer] sessionTimer element not found');
         return;
     }
     updateTimerDisplay(timeLeft);
@@ -272,7 +260,6 @@ function startSessionTimer(seconds) {
         timeLeft--;
         updateTimerDisplay(timeLeft);
         if (timeLeft <= 0) {
-            console.log('[startSessionTimer] Session timeout, logging out');
             logout();
         }
     }, 1000);
@@ -281,27 +268,22 @@ function startSessionTimer(seconds) {
 function updateTimerDisplay(seconds) {
     const timerElement = document.getElementById('sessionTimer');
     if (!timerElement) {
-        console.log('[updateTimerDisplay] sessionTimer element not found');
         return;
     }
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
     timerElement.textContent = `Session expires in ${minutes}:${secs.toString().padStart(2, '0')}`;
-    console.log(`[updateTimerDisplay] Updated timer: ${minutes}:${secs.toString().padStart(2, '0')}`);
 }
 
 function checkSession() {
     if (!currentUser) {
-        console.log('[checkSession] No current user');
         return;
     }
     apiFetch('/api/session-time', {
         headers: {}
     })
         .then(response => {
-            console.log('[checkSession] HTTP status:', response.status);
             if (response.status === 401) {
-                console.log('[checkSession] Session expired via API');
                 logout();
                 return null;
             }
@@ -309,10 +291,8 @@ function checkSession() {
         })
         .then(data => {
             if (data && data.remainingTime <= 0) {
-                console.log('[checkSession] Session expired via remainingTime');
                 logout();
             } else if (data) {
-                console.log('[checkSession] Remaining time:', data.remainingTime);
             }
         })
         .catch(error => {
@@ -323,13 +303,11 @@ function checkSession() {
 
 function addJob() {
     if (!currentUser) {
-        console.log('[AddJob] No current user');
         alert('Please log in');
         window.location.href = currentUser && currentUser.userType === 'employer' ? '/employer-login.html' : '/jobseeker-login.html';
         return;
     }
     if (!currentUser.isAdmin && currentUser.userType !== 'employer') {
-        console.log('[AddJob] User not authorized');
         document.getElementById('errorMessage').style.display = 'block';
         document.getElementById('errorMessage').textContent = 'Only admins or employers can add jobs';
         return;
@@ -342,7 +320,6 @@ function addJob() {
     const requiredSkills = document.getElementById('requiredSkills').value.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
     const benefits = document.getElementById('benefits').value.split(',').map(b => b.trim()).filter(b => b);
     if (!title || !description || !requirements.length || !salaryRange || !difficulty || !requiredSkills.length || !benefits.length) {
-        console.log('[AddJob] Empty fields');
         document.getElementById('errorMessage').style.display = 'block';
         document.getElementById('errorMessage').textContent = 'Please fill all fields';
         return;
@@ -376,7 +353,6 @@ function registerApplicant() {
     const name = document.getElementById('applicantName').value.trim();
     const skills = document.getElementById('applicantSkills').value.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
     if (!name || !skills.length) {
-        console.log('[RegisterApplicant] Empty fields');
         alert('Please fill all fields');
         return;
     }
@@ -450,7 +426,6 @@ function viewJobs() {
 
 function showMatches() {
     if (!currentUser) {
-        console.log('[ShowMatches] No current user');
         window.location.href = currentUser && currentUser.userType === 'employer' ? '/employer-login.html' : '/jobseeker-login.html';
         return;
     }
@@ -480,7 +455,6 @@ function showMatches() {
 function checkAuth() {
     currentUser = JSON.parse(localStorage.getItem('currentUser'));
     if (!currentUser) {
-        console.log('[CheckAuth] No current user, redirecting');
         window.location.href = '/jobseeker-login.html';
         return;
     }
@@ -490,19 +464,16 @@ function checkAuth() {
     const userRole = currentUser.isAdmin ? 'admin' : currentUser.userType;
     
     if (window.location.pathname.includes('add-job.html') && !currentUser.isAdmin && currentUser.userType !== 'employer') {
-        console.log('[CheckAuth] User not authorized for add-job.html');
         document.body.innerHTML = '<h2>Only admins or employers can access this page</h2><a href="/index.html">Back to Home</a>';
         return;
     }
     
     if (window.location.pathname.includes('ratings.html') && currentUser.userType !== 'jobseeker') {
-        console.log('[CheckAuth] User not authorized for ratings.html');
         document.body.innerHTML = '<h2>Only job seekers can access ratings</h2><a href="/index.html">Back to Home</a>';
         return;
     }
     
     if (window.location.pathname.includes('match-applicants.html') && !currentUser.isAdmin && currentUser.userType !== 'employer') {
-        console.log('[CheckAuth] User not authorized for match-applicants.html');
         document.body.innerHTML = '<h2>Only admins or employers can access this page</h2><a href="/index.html">Back to Home</a>';
         return;
     }
