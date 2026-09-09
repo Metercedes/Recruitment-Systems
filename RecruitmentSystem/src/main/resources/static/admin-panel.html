@@ -59,8 +59,8 @@ function loadAdminData() {
     }
     
     // Load users
-    fetch('/api/debug/users', {
-        headers: { 'X-Username': currentUser.username }
+    apiFetch('/api/debug/users', {
+        headers: {}
     })
     .then(response => response.json())
     .then(users => {
@@ -100,9 +100,9 @@ function banUser(username) {
         return;
     }
     
-    fetch(`/api/admin/users/${username}/ban`, {
+    apiFetch(`/api/admin/users/${username}/ban`, {
         method: 'POST',
-        headers: { 'X-Username': currentUser.username }
+        headers: {}
     })
     .then(response => response.json())
     .then(data => {
@@ -122,9 +122,9 @@ function deleteUser(username) {
         return;
     }
     
-    fetch(`/api/admin/users/${username}`, {
+    apiFetch(`/api/admin/users/${username}`, {
         method: 'DELETE',
-        headers: { 'X-Username': currentUser.username }
+        headers: {}
     })
     .then(response => response.json())
     .then(data => {

@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: RecruitmentSystem
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+      - name: Build and test
+        run: mvn -B verify
+      - name: Generate SBOM
+        run: mvn -B cyclonedx:makeAggregateBom
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: reports
+          path: |
+            RecruitmentSystem/target/surefire-reports
+            RecruitmentSystem/target/sbom.json
+          retention-days: 14
+
+  codeql:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: temurin
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          queries: security-extended
+      - name: Compile for analysis
+        run: mvn -B -f RecruitmentSystem/pom.xml compile
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:java-kotlin

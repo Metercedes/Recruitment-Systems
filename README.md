@@ -1,95 +1,115 @@
-# Recruitment Systems
+# secure-recruitment-platform
 
-**Short description**
-A simple job/application application developed with IntelliJ IDEA, using Maven + Java 24. When run locally the entry page is: `http://localhost:8098/jobseeker-login.html`.
+A job board — employers post vacancies, job seekers register skills and get matched — that was
+built as a university project and then reviewed as if it were someone else's code.
 
----
+The review found twelve issues. The worst of them was that authentication was decided by an
+`X-Username` request header, so `curl -H "X-Username: admin"` was a full administrative session
+against every endpoint. This branch fixes all twelve and adds a test for each one.
 
-## Requirements
+[docs/security-review.md](docs/security-review.md) is the substance of this repository. It has the
+finding, the original code, the impact, the root cause, the fix, and the test that holds it, for
+each issue. The vulnerable code is still in the history at `86281d6`, so every claim can be checked
+against what it describes.
 
-* JDK 24 (Java 24)
-* Maven
-* IntelliJ IDEA (Ultimate or **Community** — Community is free and likely sufficient)
-* NOTE: IntelliJ can download JDK and Maven inside the IDE; no separate installation is required.
+## The findings
 
-  * Download: [https://www.jetbrains.com/idea/download/?section=mac](https://www.jetbrains.com/idea/download/?section=mac)
+| ID | Finding | CWE | Severity |
+| --- | --- | --- | --- |
+| F-01 | Authentication decided by a client-supplied header | CWE-287, CWE-290 | 9.8 Critical |
+| F-02 | Administrative endpoints gated on that same header | CWE-285, CWE-863 | 9.1 Critical |
+| F-03 | Debug endpoint returned all accounts with password hashes | CWE-200, CWE-489 | 7.5 High |
+| F-04 | Administrator credentials compiled into the source | CWE-798 | 8.8 High |
+| F-05 | Login responses enabled account enumeration | CWE-204 | 5.3 Medium |
+| F-06 | Authentication flow written to standard output | CWE-532 | 5.3 Medium |
+| F-07 | Encryption key generated at startup and printed | CWE-321, CWE-532 | 7.5 High |
+| F-08 | No CSRF protection on state-changing endpoints | CWE-352 | 6.5 Medium |
+| F-09 | Session cookie marked insecure | CWE-614 | 4.3 Medium |
+| F-10 | Password change trusted a username from the body | CWE-639 | 8.1 High |
+| F-11 | Build output committed to version control | CWE-1104 | Informational |
+| F-12 | End-of-life framework with no dependency scanning | CWE-1104 | 5.9 Medium |
 
----
+Two of these are worth reading even if you skip the rest.
 
-## How to run
+**F-07** is the one that would have been hardest to notice in production. When the encryption key
+was unset, the service generated a fresh one *per call* and printed it to the console. So personal
+data was encrypted with a key that was written to the log and then thrown away — it could never be
+decrypted again. Nothing failed loudly. The data just quietly became unreadable.
 
-1. Clone the repo.
-2. Open the project in IntelliJ as a Maven project (Import).
-3. Select JDK 24 as the Project SDK.
-4. Build from the command line or the IDE terminal:
+**F-08** only became a real problem because of the fix for F-01. The original header-based scheme
+happened to be CSRF-resistant, since a browser will not attach a custom header to a cross-site
+request. Moving authentication to a session cookie removes that accident. Fixing the critical
+finding without also enabling CSRF protection would have traded one vulnerability for another.
 
-   ```bash
-   mvn clean package
-   ```
-5. Start the application via an IDE run configuration or, if a jar was produced:
+## Running it
 
-   ```bash
-   java -jar target/<artifact>.jar
-   ```
-6. Open in the browser:
-   `http://localhost:8098/jobseeker-login.html`
+Requires JDK 25.
 
-> Note: Depending on the project structure you can use an embedded server (e.g., Jetty/Tomcat) or the IDE run configuration. Check the console logs.
+```bash
+export APP_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+export APP_ADMIN_USERNAME=admin
+export APP_ADMIN_PASSWORD='choose-a-real-one'
+mvn spring-boot:run
+```
 
----
+Then open <http://localhost:8098/>.
 
-## Desired (expected) features
+The application will not start without `APP_ENCRYPTION_KEY`, and will refuse a weak administrator
+password. If the admin variables are unset it starts normally with no administrator account, which
+is the correct default for a deployment that does not need one.
 
-* **Secure login**
+```bash
+mvn test      # 26 tests
+mvn package   # also writes a CycloneDX SBOM to target/
+```
 
-  * Captcha (against bots)
-  * Password strength checks (minimum length, complexity rules)
-  * Hashing for passwords (bcrypt/argon2)
-  * AES-256 encryption for sensitive user data (pay attention to key management)
-* **Authorisation / Security**
+## What changed
 
-  * Login should not be bypassable by link/URL manipulation — enforce server-side session and role checks
-* **Roles**
+Authentication is Spring Security with a server-side session. Identity reaches controllers through
+`Principal` and nothing else — there is no code path where a caller can state who they are.
+Authorisation is declared with `@PreAuthorize` and enforced again in the filter chain, so an
+endpoint added without a role check is still covered by `anyRequest().authenticated()`.
 
-  * `Admin`: Manages accounts; can delete/ban, etc.
-  * `User`: Creates profile/CV; jobs are listed to them based on skills.
-  * `Company`: Posts job ads; reviews applications, accepts/rejects.
+Session cookies are `HttpOnly`, `SameSite=Strict`, and `Secure` where configured. The session id is
+regenerated on login so a planted id is discarded rather than upgraded. CSRF protection uses a
+cookie the page's own scripts can read and no other origin can.
 
----
+Failed authentication returns one identical response whether the account is unknown, the password
+is wrong, or the account is locked. The distinction goes to the security log, where the defender
+can see it and the attacker cannot.
 
-## Current issues (areas where I need help)
+Passwords are BCrypt at cost 12 through Spring Security, replacing an unmaintained third-party
+library. The policy requires twelve characters with mixed case, a digit and a symbol, and it now
+applies to the administrator account too — which is where the original `admin123` came from.
 
-1. **Login / Register buttons not working**
+## Testing
 
-   * Clicking the button produces no reaction. (Frontend event not firing or backend endpoint not reachable.)
-   * Checks: browser console (JS errors), Network tab (is the request sent?), button `type` and event listener.
+`SecurityRegressionTest` has one nested class per finding, each asserting the behaviour the
+original code got wrong. A regression re-opens a specific documented vulnerability rather than
+merely failing a test:
 
-2. **Login bypass via URL manipulation**
+- a request carrying `X-Username` is unauthenticated, and an authenticated user who also sends it
+  still acts as themselves
+- an ordinary user gets 403 from the administrative endpoints, an anonymous caller gets 401
+- the debug paths return 404 even for an administrator, and no response body contains a BCrypt hash
+- a wrong password and an unknown user produce byte-identical responses
+- a state-changing POST without a CSRF token is rejected; with one it succeeds
+- a password change naming another user in the body changes the caller's own password and leaves
+  the named account's password working
 
-   * Protected pages can be accessed directly. Expected: server-side session/role checks and protection.
+`EncryptionServiceTest` covers F-07 directly, including the test that would have caught the
+original bug: two instances sharing a configured key can read each other's ciphertext.
 
-3. **Data not encrypted**
+## Limitations
 
-   * Sensitive data is stored in plain form. AES-256 encryption is desired; passwords should be hashed instead.
-
----
-
-## Security notes (important)
-
-* **Passwords are *not encrypted*; they are hashed.** (Use bcrypt or argon2.)
-* AES-256 is suitable for other sensitive data (e.g., ID numbers, personal documents), not passwords.
-* Do **not** store the AES key in code — use environment variables, a secrets manager, or a KMS.
-* All validations must be repeated **server-side**; frontend validation is only for user experience.
-
----
-
-## To-do / Recommended steps (in priority order)
-
-1. Debug login/register buttons in the browser (console + network). Fix any errors; if none, check backend endpoints.
-2. Add server-side access control (role-based access control).
-3. Password storage: implement hashing with bcrypt/argon2.
-4. AES-256 encryption for sensitive fields; decide on key management.
-5. Integrate captcha and password strength validation — I tried this, it produced an error; afterwards I attempted to implement the feature myself but it didn't work.
-6. Submit small, focused PRs (e.g., fix the button bug first, then authorisation, etc.).
-
----
+- **Storage is in memory.** The original entities were annotated for JPA but the service kept
+  everything in `HashMap`s, so nothing was ever persisted. The annotations were removed rather than
+  wired up, because leaving them implied a database that did not exist. All state is lost on
+  restart and cannot be shared across instances.
+- **No rate limiting.** Account lockout after five failures slows credential stuffing against one
+  account. Nothing limits overall request volume, and a spray across many accounts is not stopped.
+- **Lockout state is per-instance,** so it does not survive a restart or apply across replicas.
+- **No email verification or password reset.** Both would need an email path this project does not
+  have.
+- **Reviewed statically.** Findings come from reading the code and are confirmed by tests, not by
+  exploitation against a running instance.

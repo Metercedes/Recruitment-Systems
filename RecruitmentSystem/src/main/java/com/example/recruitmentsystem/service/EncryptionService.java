@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -20,26 +19,37 @@ public class EncryptionService {
     private static final int GCM_IV_LENGTH = 12;
     private static final int GCM_TAG_LENGTH = 16;
 
-    @Value("${app.encryption.key:}")
-    private String encryptionKeyString;
+    private final SecretKey key;
+
+    /**
+     * The key is required configuration and is resolved once at construction.
+     *
+     * <p>The original implementation generated a fresh key whenever the property was unset and
+     * printed it to standard output. That did two things: it wrote key material into the
+     * application log, and it produced a different key on every restart, so anything encrypted
+     * before a restart could never be decrypted again. Neither failure announced itself.
+     */
+    public EncryptionService(@Value("${app.encryption.key:}") String configuredKey) {
+        if (configuredKey == null || configuredKey.isBlank()) {
+            throw new IllegalStateException(
+                    "app.encryption.key is required. Generate one with: "
+                            + "openssl rand -base64 32");
+        }
+        byte[] keyBytes;
+        try {
+            keyBytes = Base64.getDecoder().decode(configuredKey);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("app.encryption.key must be Base64-encoded", e);
+        }
+        if (keyBytes.length != 32) {
+            throw new IllegalStateException(
+                    "app.encryption.key must decode to 32 bytes for AES-256, got " + keyBytes.length);
+        }
+        this.key = new SecretKeySpec(keyBytes, ALGORITHM);
+    }
 
     private SecretKey getEncryptionKey() {
-        if (encryptionKeyString == null || encryptionKeyString.isEmpty()) {
-            // Generate a new key for development - in production, this should come from environment
-            try {
-                KeyGenerator keyGenerator = KeyGenerator.getInstance(ALGORITHM);
-                keyGenerator.init(256);
-                SecretKey key = keyGenerator.generateKey();
-                System.out.println("WARNING: Using generated encryption key. Set app.encryption.key in production!");
-                System.out.println("Generated key (base64): " + Base64.getEncoder().encodeToString(key.getEncoded()));
-                return key;
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to generate encryption key", e);
-            }
-        }
-        
-        byte[] keyBytes = Base64.getDecoder().decode(encryptionKeyString);
-        return new SecretKeySpec(keyBytes, ALGORITHM);
+        return key;
     }
 
     public String encrypt(String plainText) {

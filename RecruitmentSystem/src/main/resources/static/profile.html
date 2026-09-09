@@ -38,8 +38,8 @@ function loadProfile() {
         return;
     }
     
-    fetch('/api/user/profile', {
-        headers: { 'X-Username': currentUser.username }
+    apiFetch('/api/user/profile', {
+        headers: {}
     })
     .then(response => response.json())
     .then(profile => {
@@ -75,11 +75,10 @@ function updatePersonalData() {
         return;
     }
     
-    fetch('/api/user/personal-data', {
+    apiFetch('/api/user/personal-data', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-Username': currentUser.username
         },
         body: JSON.stringify({ personalId, phoneNumber, address })
     })

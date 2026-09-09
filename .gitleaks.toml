@@ -1,0 +1,20 @@
+[extend]
+useDefault = true
+
+# The test profile needs a syntactically valid AES-256 key or the application context cannot
+# start. The value below is Base64 of the literal string "recruitment-platform-test-key-32" and
+# is confined to the test source set. The real key has no default and must come from
+# APP_ENCRYPTION_KEY, which is what finding F-07 in docs/security-review.md is about.
+[[rules]]
+id = "generic-api-key"
+description = "Generic API key"
+regex = '''(?i)(?:key|api|token|secret|client|passwd|password|auth|access)[0-9a-z\-_\t .]{0,20}(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\|:|<=|=>|:|\?=)(?:'|\"|\s|=|\x60){0,5}([0-9a-z\-_.=]{10,150})(?:['|\"|\n|\r|\s|\x60|;|\\]|$)'''
+keywords = ["key", "api", "token", "secret", "client", "passwd", "password", "auth", "access"]
+
+  [rules.allowlist]
+  paths = [
+    '''src/test/resources/application\.properties''',
+    '''src/test/java/.*EncryptionServiceTest\.java''',
+  ]
+  regexTarget = "match"
+  regexes = ['''cmVjcnVpdG1lbnQtcGxhdGZvcm0tdGVzdC1rZXk''']

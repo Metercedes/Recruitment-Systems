@@ -1,2 +1,14 @@
-node_modules/
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.DS_Store
+
+*.log
+logs/
 .env

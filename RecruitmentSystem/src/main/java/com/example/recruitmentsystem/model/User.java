@@ -1,32 +1,19 @@
 package com.example.recruitmentsystem.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Transient;
 import java.util.List;
-
-@Entity
 public class User {
-    @Id
     private String username;
     private String password;
     private boolean isAdmin;
     private boolean wasLocked;
+    private boolean banned;
     private String userType; // "employer" or "jobseeker"
     
     // Encrypted sensitive data
     private String encryptedPersonalData; // JSON string containing sensitive info
-    
-    @Transient
     private List<String> skills; // For job seekers - not persisted directly
-    
-    @Transient
     private String personalId; // Decrypted personal ID
-    
-    @Transient
     private String phoneNumber; // Decrypted phone number
-    
-    @Transient
     private String address; // Decrypted address
 
     public String getUsername() { return username; }
@@ -35,6 +22,8 @@ public class User {
     public void setPassword(String password) { this.password = password; }
     public boolean isAdmin() { return isAdmin; }
     public void setAdmin(boolean admin) { this.isAdmin = admin; }
+    public boolean isBanned() { return banned; }
+    public void setBanned(boolean banned) { this.banned = banned; }
     public boolean isWasLocked() { return wasLocked; }
     public void setWasLocked(boolean wasLocked) { this.wasLocked = wasLocked; }
     public String getUserType() { return userType; }

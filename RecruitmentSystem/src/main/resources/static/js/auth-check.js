@@ -47,8 +47,8 @@ function validateSession() {
     }
     
     // Check session with server
-    return fetch('/api/session-time', {
-        headers: { 'X-Username': currentUser.username }
+    return apiFetch('/api/session-time', {
+        headers: {}
     })
     .then(response => {
         if (response.status === 401) {

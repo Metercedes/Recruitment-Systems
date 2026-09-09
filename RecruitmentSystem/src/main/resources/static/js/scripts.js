@@ -1,3 +1,41 @@
+// Session-based API access.
+//
+// The previous version sent `X-Username` on every request, which meant the browser told the
+// server who the user was. Identity now comes from the session cookie, and the CSRF token is
+// read from the cookie the server sets and echoed back on every state-changing request.
+function readCookie(name) {
+    const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+    return match ? decodeURIComponent(match[2]) : null;
+}
+
+async function ensureCsrfToken() {
+    if (!readCookie('XSRF-TOKEN')) {
+        await fetch('/api/auth/csrf', { credentials: 'include' });
+    }
+    return readCookie('XSRF-TOKEN');
+}
+
+async function apiFetch(url, options = {}) {
+    const opts = { credentials: 'include', ...options };
+    opts.headers = { ...(options.headers || {}) };
+    const method = (opts.method || 'GET').toUpperCase();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        const token = await ensureCsrfToken();
+        if (token) {
+            opts.headers['X-XSRF-TOKEN'] = token;
+        }
+    }
+    const response = await fetch(url, opts);
+    if (response.status === 401) {
+        currentUser = null;
+        localStorage.removeItem('currentUser');
+        if (!window.location.pathname.endsWith('login.html')) {
+            window.location.href = 'login.html';
+        }
+    }
+    return response;
+}
+
 let currentUser = null;
 let sessionTimer = null;
 
@@ -29,7 +67,7 @@ function login(userType) {
         loginButton.textContent = 'Logging in...';
     }
     
-    fetch('/api/login', {
+    apiFetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, recaptchaToken })
@@ -99,7 +137,7 @@ function register() {
         registerButton.textContent = 'Registering...';
     }
     
-    fetch('/api/register', {
+    apiFetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, userType })
@@ -162,7 +200,7 @@ function changePassword() {
         window.location.href = userType === 'employer' ? '/employer-login.html' : '/jobseeker-login.html';
         return;
     }
-    fetch('/api/change-password', {
+    apiFetch('/api/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: currentUser.username, oldPassword, newPassword })
@@ -194,9 +232,9 @@ function logout() {
         return;
     }
     console.log('[logout] Attempting to log out user:', currentUser.username);
-    fetch('/api/logout', {
+    apiFetch('/api/logout', {
         method: 'POST',
-        headers: { 'X-Username': currentUser.username }
+        headers: {}
     })
         .then(response => response.json())
         .then(data => {
@@ -257,8 +295,8 @@ function checkSession() {
         console.log('[checkSession] No current user');
         return;
     }
-    fetch('/api/session-time', {
-        headers: { 'X-Username': currentUser.username }
+    apiFetch('/api/session-time', {
+        headers: {}
     })
         .then(response => {
             console.log('[checkSession] HTTP status:', response.status);
@@ -309,11 +347,10 @@ function addJob() {
         document.getElementById('errorMessage').textContent = 'Please fill all fields';
         return;
     }
-    fetch('/api/jobs', {
+    apiFetch('/api/jobs', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-Username': currentUser.username
         },
         body: JSON.stringify({ title, description, requirements, salaryRange, difficulty, requiredSkills, benefits })
     })
@@ -343,7 +380,7 @@ function registerApplicant() {
         alert('Please fill all fields');
         return;
     }
-    fetch('/api/applicants', {
+    apiFetch('/api/applicants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, skills })
@@ -367,8 +404,8 @@ function viewJobs() {
     const difficulty = document.getElementById('filterDifficulty')?.value || '';
     const skill = document.getElementById('filterSkill')?.value || '';
     const minRating = parseFloat(document.getElementById('filterRating')?.value) || null;
-    fetch(`/api/jobs?salaryRange=${encodeURIComponent(salaryRange)}&difficulty=${encodeURIComponent(difficulty)}&skill=${encodeURIComponent(skill)}&minRating=${minRating || ''}`, {
-        headers: currentUser ? { 'X-Username': currentUser.username } : {}
+    apiFetch(`/api/jobs?salaryRange=${encodeURIComponent(salaryRange)}&difficulty=${encodeURIComponent(difficulty)}&skill=${encodeURIComponent(skill)}&minRating=${minRating || ''}`, {
+        headers: {}
     })
         .then(response => response.json())
         .then(jobs => {
@@ -390,8 +427,8 @@ function viewJobs() {
                     <div id="comments-${job.id}"></div>
                 `;
                     jobList.appendChild(li);
-                    fetch(`/api/comments?jobId=${job.id}`, {
-                        headers: currentUser ? { 'X-Username': currentUser.username } : {}
+                    apiFetch(`/api/comments?jobId=${job.id}`, {
+                        headers: {}
                     })
                         .then(res => res.json())
                         .then(comments => {
@@ -417,8 +454,8 @@ function showMatches() {
         window.location.href = currentUser && currentUser.userType === 'employer' ? '/employer-login.html' : '/jobseeker-login.html';
         return;
     }
-    fetch('/api/matches', {
-        headers: { 'X-Username': currentUser.username }
+    apiFetch('/api/matches', {
+        headers: {}
     })
         .then(response => response.json())
         .then(matches => {
@@ -481,11 +518,10 @@ function submitRating() {
     const targetUsername = document.getElementById('targetUsername').value.trim();
     const score = parseInt(document.getElementById('ratingScore').value);
     const review = document.getElementById('ratingReview').value.trim();
-    fetch('/api/ratings', {
+    apiFetch('/api/ratings', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-Username': currentUser.username
         },
         body: JSON.stringify({ target: targetUsername, score, review })
     })
@@ -503,8 +539,8 @@ function submitRating() {
 
 function viewRatings() {
     const targetUsername = document.getElementById('viewTargetUsername').value.trim();
-    fetch(`/api/ratings?target=${targetUsername}`, {
-        headers: { 'X-Username': currentUser.username }
+    apiFetch(`/api/ratings?target=${targetUsername}`, {
+        headers: {}
     })
         .then(response => response.json())
         .then(ratings => {
@@ -535,11 +571,10 @@ function addComment(jobId) {
         alert('Comment cannot be empty');
         return;
     }
-    fetch('/api/comments', {
+    apiFetch('/api/comments', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-Username': currentUser.username
         },
         body: JSON.stringify({ jobId, content })
     })
@@ -561,8 +596,8 @@ function getNotifications() {
         window.location.href = '/jobseeker-login.html';
         return;
     }
-    fetch('/api/notifications', {
-        headers: { 'X-Username': currentUser.username }
+    apiFetch('/api/notifications', {
+        headers: {}
     })
         .then(response => response.json())
         .then(notifications => {
@@ -591,11 +626,10 @@ function updateSkills() {
         return;
     }
     const skills = document.getElementById('userSkills').value.split(',').map(s => s.trim()).filter(s => s);
-    fetch('/api/user/skills', {
+    apiFetch('/api/user/skills', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-Username': currentUser.username
         },
         body: JSON.stringify({ skills })
     })
