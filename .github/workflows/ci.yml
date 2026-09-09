@@ -35,6 +35,13 @@ jobs:
             RecruitmentSystem/target/sbom.json
           retention-days: 14
 
+      - name: Scan the SBOM for known vulnerabilities
+        uses: anchore/scan-action@v7
+        with:
+          sbom: RecruitmentSystem/target/sbom.json
+          fail-build: true
+          severity-cutoff: high
+
   codeql:
     runs-on: ubuntu-latest
     permissions:
