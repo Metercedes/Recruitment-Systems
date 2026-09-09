@@ -29,7 +29,7 @@ against what it describes.
 | F-11 | Build output committed to version control | CWE-1104 | Informational |
 | F-12 | End-of-life framework with no dependency scanning | CWE-1104 | 5.9 Medium |
 
-Two of these are worth reading even if you skip the rest.
+Two of the twelve are worth expanding on.
 
 **F-07** is the one that would have been hardest to notice in production. When the encryption key
 was unset, the service generated a fresh one *per call* and printed it to the console. So personal
@@ -85,8 +85,7 @@ applies to the administrator account too — which is where the original `admin1
 ## Testing
 
 `SecurityRegressionTest` has one nested class per finding, each asserting the behaviour the
-original code got wrong. A regression re-opens a specific documented vulnerability rather than
-merely failing a test:
+original code got wrong. A regression therefore re-opens a specific documented vulnerability, not just a red test:
 
 - a request carrying `X-Username` is unauthenticated, and an authenticated user who also sends it
   still acts as themselves
